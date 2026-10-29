@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>악보 제작</title>
+<!-- 아이폰 홈 화면에 앱처럼 추가 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="악보 제작">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#171b36">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<script src="pdf-lib.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&display=swap');
+  :root {
+    --night:#171b36; --dusk:#2b2748; --glow:#e9c77b; --gold:#b98a3e; --gold-deep:#8f6724;
+    --paper:#fbf7ee; --paper-2:#f4eddc; --line:#e3d8bd; --text:#2a2638; --muted:#7a7288;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; color:var(--text); min-height:100vh;
+    font-family:"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+    background:
+      radial-gradient(700px 380px at 50% -60px, rgba(233,199,123,.38), transparent 70%),
+      linear-gradient(180deg, var(--night) 0%, var(--dusk) 55%, #3a3050 100%);
+    background-attachment: fixed;
+  }
+  .wrap { max-width:960px; margin:0 auto; padding:40px 16px 70px; }
+
+  header { text-align:center; margin-bottom:28px; color:#f6efdc; }
+  .cross { display:block; margin:0 auto 10px; width:26px; height:34px; filter:drop-shadow(0 0 10px rgba(233,199,123,.7)); }
+  .eyebrow { font-size:12px; letter-spacing:.35em; color:var(--glow); opacity:.9; margin-bottom:6px; }
+  h1 { font-family:"Noto Serif KR","Batang","Apple SD Gothic Neo",serif; font-weight:700; font-size:34px; letter-spacing:.08em; margin:0 0 10px; color:#fff6dc; text-shadow:0 0 24px rgba(233,199,123,.45); }
+  .sub { color:#cfc8e0; font-size:14px; line-height:1.6; }
+  .orn { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px; color:var(--glow); opacity:.8; font-size:11px; }
+  .orn::before, .orn::after { content:""; width:70px; height:1px; background:linear-gradient(90deg, transparent, var(--glow)); }
+  .orn::after { transform:scaleX(-1); }
+
+  .panel { background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:18px; box-shadow:0 10px 30px rgba(8,8,30,.35), inset 0 1px 0 #fff; }
+  .panel-title { font-family:"Noto Serif KR",serif; font-weight:600; font-size:15px; color:var(--gold-deep); margin:0 0 14px; display:flex; align-items:center; gap:8px; }
+  .panel-title::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--gold); box-shadow:0 0 8px var(--glow); }
+  .row { display:flex; gap:14px; flex-wrap:wrap; }
+  label { display:block; font-size:13px; color:var(--muted); margin-bottom:5px; }
+  input[type=text], input[type=date], select { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-size:15px; font-family:inherit; background:#fffdf8; color:var(--text); }
+  input:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(185,138,62,.2); }
+  .field { flex:1 1 200px; }
+
+  #drop { border:2px dashed #d6c598; border-radius:14px; padding:34px 20px; text-align:center; color:var(--muted); cursor:pointer; background:linear-gradient(180deg, #fffdf6, var(--paper-2)); transition:.2s; line-height:1.7; }
+  #drop:hover { border-color:var(--gold); }
+  #drop::before { content:"♪"; display:block; font-size:30px; color:var(--gold); margin-bottom:4px; }
+  #drop.over { border-color:var(--gold); background:#fff3d4; color:var(--gold-deep); box-shadow:0 0 24px rgba(233,199,123,.5); }
+
+  #list { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px; margin-top:16px; }
+  .item { border:1px solid var(--line); border-radius:12px; padding:10px; background:#fff; box-shadow:0 3px 10px rgba(60,40,10,.08); }
+  .item.dragging { opacity:.4; }
+  .item img { width:100%; height:200px; object-fit:contain; background:var(--paper-2); border-radius:8px; display:block; }
+  .item .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px; color:var(--muted); }
+  .item .top b { color:var(--gold-deep); font-family:"Noto Serif KR",serif; }
+  .item .btns button { border:1px solid var(--line); background:#fffdf8; border-radius:7px; cursor:pointer; padding:2px 7px; font-size:13px; color:var(--text); }
+  .item .btns button:hover { background:var(--paper-2); border-color:var(--gold); }
+  .item input { margin-top:10px; font-size:13px; padding:8px 10px; }
+  .hint { font-size:12px; color:var(--muted); margin-top:6px; line-height:1.5; }
+
+  .preview { margin-top:14px; padding:14px 12px; background:#fff; border:1px solid var(--line); border-radius:12px; text-align:center; }
+  .preview .cap { font-size:11px; color:var(--gold); letter-spacing:.15em; margin-bottom:8px; }
+  .preview .small { font-size:8px; color:#333; }
+  .preview .order { font-size:16px; font-weight:700; margin-top:2px; }
+  .preview .order.ph { color:#b9b2c4; font-weight:400; }
+
+  .actions { display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap; margin-top:8px; }
+  button.primary { background:linear-gradient(180deg, #f1d38a, var(--gold)); color:#2a1d05; border:0; border-radius:999px; padding:14px 52px; font-size:17px; font-weight:700; letter-spacing:.2em; cursor:pointer; font-family:inherit; box-shadow:0 6px 22px rgba(233,199,123,.35), inset 0 1px 0 rgba(255,255,255,.6); transition:.2s; }
+  button.primary:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 10px 28px rgba(233,199,123,.5), inset 0 1px 0 rgba(255,255,255,.6); }
+  button.primary:disabled { opacity:.4; cursor:not-allowed; }
+  #status { font-size:14px; color:#d8d1e8; }
+
+  /* ---- 휴대폰/터치 대응 ---- */
+  html { -webkit-text-size-adjust:100%; }
+  button { -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .pick-row { display:flex; gap:10px; margin-top:10px; }
+  .pick-row button, .result a, .result button {
+    flex:1; min-height:48px; border:1px solid var(--line); background:#fffdf8; color:var(--gold-deep);
+    border-radius:12px; font-size:15px; font-family:inherit; font-weight:600; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; text-decoration:none;
+  }
+  .result { display:none; gap:10px; width:100%; max-width:420px; margin:14px auto 0; }
+  .result.show { display:flex; }
+  .result a { background:linear-gradient(180deg,#f1d38a,var(--gold)); color:#2a1d05; border:0; }
+  .result button { background:#fffdf8; border:0; }
+  #drop { margin-top:10px; }
+  @media (pointer:coarse) { #drop { display:none; } }
+  body { padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); }
+  .install-tip { display:none; margin:14px auto 0; max-width:420px; padding:10px 14px; border:1px solid rgba(233,199,123,.5); border-radius:12px; background:rgba(233,199,123,.1); color:#f3e7c4; font-size:13px; line-height:1.6; text-align:left; position:relative; }
+  .install-tip.show { display:block; }
+  .install-tip button { position:absolute; top:4px; right:6px; background:none; border:0; color:#f3e7c4; font-size:16px; padding:6px; cursor:pointer; }
+  .install-tip b { color:var(--glow); }
+  @media (max-width: 640px) {
+    .wrap { padding:28px 12px 60px; }
+    h1 { font-size:28px; }
+    header { margin-bottom:20px; }
+    .panel { padding:16px; border-radius:14px; }
+    .field { flex-basis:100%; }
+    input[type=text], input[type=date], select { font-size:16px; padding:12px; min-height:48px; } /* iOS 자동 확대 방지 */
+    #list { grid-template-columns:repeat(2, 1fr); gap:10px; }
+    .item { padding:8px; }
+    .item img { height:140px; }
+    .item .btns { display:flex; gap:4px; }
+    .item .btns button { min-width:34px; min-height:34px; font-size:14px; padding:0; }
+    .item input { font-size:16px; padding:10px; min-height:44px; }
+    button.primary { width:100%; padding:16px; font-size:18px; }
+    .actions { flex-direction:column; }
+    .result { flex-direction:column; }
+    #drop { padding:24px 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="cross" viewBox="0 0 26 34" fill="none" aria-hidden="true">
+      <path d="M13 1v32M2 11h22" stroke="#e9c77b" stroke-width="3.2" stroke-linecap="round"/>
+    </svg>
+    <div class="eyebrow">WORSHIP</div>
+    <h1>악보 제작</h1>
+    <div class="sub">악보 이미지를 올리면 상단에 예배 정보와 곡 진행 순서를 넣어<br>하나의 PDF로 합쳐줍니다.</div>
+    <div class="orn">✦</div>
+    <div class="install-tip" id="installTip">
+      <button type="button" id="tipClose" aria-label="닫기">✕</button>
+      📲 <b>앱처럼 쓰기</b> — Safari 아래쪽 <b>공유 버튼(□↑)</b>을 누르고 <b>「홈 화면에 추가」</b>를 선택하세요.
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="panel-title">예배 정보</div>
+    <div class="row">
+      <div class="field">
+        <label>예배 종류</label>
+        <input type="text" id="worshipType" list="worshipList" value="청년부예배">
+        <datalist id="worshipList">
+          <option value="청년부예배"><option value="주일예배"><option value="주일 오전예배"><option value="주일 오후예배">
+          <option value="수요예배"><option value="금요기도회"><option value="새벽예배"><option value="청년예배"><option value="찬양집회">
+        </datalist>
+      </div>
+      <div class="field">
+        <label>날짜</label>
+        <input type="date" id="worshipDate">
+      </div>
+    </div>
+    <div class="hint" style="margin-top:10px">곡 진행 순서는 아래 악보 카드마다 따로 입력합니다. 비워 두면 해당 페이지에는 순서 줄이 생략됩니다.</div>
+    <div class="preview" id="preview"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">악보 올리기</div>
+    <div class="pick-row">
+      <button type="button" id="camBtn">📷 카메라 촬영</button>
+      <button type="button" id="albumBtn">🖼 앨범에서 선택</button>
+    </div>
+    <div id="drop">컴퓨터에서는 여기로 악보 이미지를 끌어다 놓거나 눌러서 선택하세요<br><small>JPG · PNG · WEBP 등 여러 장 가능</small></div>
+    <input type="file" id="file" accept="image/*" multiple hidden>
+    <input type="file" id="cam" accept="image/*" capture="environment" hidden>
+    <div id="list"></div>
+    <div class="hint" id="listHint" style="display:none">번호 옆 ◀ ▶ 버튼으로 순서를 바꾸고 ✕로 지웁니다. (컴퓨터에서는 카드를 끌어서도 바꿀 수 있어요)</div>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="make" disabled>제작</button>
+    <span id="status"></span>
+  </div>
+  <div class="result" id="result">
+    <a id="dlLink" target="_blank" rel="noopener">PDF 열기 / 저장</a>
+    <button type="button" id="shareBtn">공유</button>
+  </div>
+</div>
+
+<script>
+const items = []; // {id, file, url, order}
+let uid = 0;
+const $ = s => document.querySelector(s);
+
+// ---------- 날짜 기본값 ----------
+// 입력한 날짜 이후(당일 포함) 돌아오는 일요일로 맞춤
+function toNextSunday(value){
+  const [y,m,d] = value.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  dt.setDate(dt.getDate() + (7 - dt.getDay()) % 7);
+  const p = n => String(n).padStart(2,'0');
+  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}`;
+}
+(function(){
+  const t = new Date();
+  const p = n => String(n).padStart(2,'0');
+  $('#worshipDate').value = toNextSunday(`${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}`);
+})();
+$('#worshipDate').addEventListener('change', e => {
+  if (e.target.value) { e.target.value = toNextSunday(e.target.value); updatePreview(); }
+});
+
+function infoLine(){
+  const t = $('#worshipType').value.trim();
+  const v = $('#worshipDate').value;
+  let ds = '';
+  if (v) {
+    const [y,m,d] = v.split('-').map(Number);
+    const w = ['일','월','화','수','목','금','토'][new Date(y,m-1,d).getDay()];
+    ds = `${y}.${String(m).padStart(2,'0')}.${String(d).padStart(2,'0')} (${w})`;
+  }
+  return [t, ds].filter(Boolean).join('  ·  ');
+}
+
+function updatePreview(){
+  const o = items.length ? items[0].order.trim() : '';
+  const orderHtml = o
+    ? `<div class="order">${esc(o)}</div>`
+    : `<div class="order ph">INTRO-A1-A2-B-C-A2-B-C-C-INTERLUDE (예시)</div>`;
+  $('#preview').innerHTML = `<div class="cap">상단 미리보기</div><div class="small">${esc(infoLine())}</div>${orderHtml}`;
+}
+function esc(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+['worshipType','worshipDate'].forEach(id => $('#'+id).addEventListener('input', updatePreview));
+updatePreview();
+
+// ---------- 파일 추가 ----------
+const drop = $('#drop'), fileInput = $('#file');
+drop.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { addFiles(e.target.files); fileInput.value=''; });
+$('#albumBtn').addEventListener('click', () => fileInput.click());
+const camInput = $('#cam');
+$('#camBtn').addEventListener('click', () => camInput.click());
+
+// 아이폰 사파리에서 홈 화면 추가 안내 (이미 앱으로 열었거나 닫은 적 있으면 숨김)
+(function(){
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  let closed = false;
+  try { closed = localStorage.getItem('tipClosed') === '1'; } catch (e) {}
+  if (isIOS && !standalone && !closed) $('#installTip').classList.add('show');
+  $('#tipClose').addEventListener('click', () => {
+    $('#installTip').classList.remove('show');
+    try { localStorage.setItem('tipClosed', '1'); } catch (e) {}
+  });
+})();
+camInput.addEventListener('change', e => { addFiles(e.target.files); camInput.value=''; });
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+
+function addFiles(files){
+  const arr = [...files].filter(f => f.type.startsWith('image/'))
+    .sort((a,b) => a.name.localeCompare(b.name, 'ko', {numeric:true}));
+  arr.forEach(f => items.push({ id: ++uid, file: f, url: URL.createObjectURL(f), order: '' }));
+  render();
+}
+
+// ---------- 목록 렌더 ----------
+let dragId = null;
+function render(){
+  const list = $('#list');
+  list.innerHTML = '';
+  items.forEach((it, i) => {
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.draggable = !window.matchMedia('(pointer:coarse)').matches; // 터치 기기에서는 버튼으로 이동
+    el.dataset.id = it.id;
+    el.innerHTML = `
+      <div class="top"><span><b>${i+1}</b> 페이지</span>
+        <span class="btns"><button data-a="l">◀</button> <button data-a="r">▶</button> <button data-a="x">✕</button></span></div>
+      <img src="${it.url}" alt="">
+      <input type="text" placeholder="곡 진행 순서 (예: INTRO-A1-B-C)" value="${esc(it.order)}">`;
+    el.querySelector('input').addEventListener('input', e => { it.order = e.target.value; updatePreview(); });
+    el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      const a = b.dataset.a;
+      if (a==='x') { URL.revokeObjectURL(it.url); items.splice(i,1); }
+      if (a==='l' && i>0) [items[i-1], items[i]] = [items[i], items[i-1]];
+      if (a==='r' && i<items.length-1) [items[i+1], items[i]] = [items[i], items[i+1]];
+      render();
+    }));
+    el.addEventListener('dragstart', () => { dragId = it.id; el.classList.add('dragging'); });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', e => e.preventDefault());
+    el.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation();
+      if (dragId == null || dragId === it.id) return;
+      const from = items.findIndex(x => x.id === dragId);
+      const [m] = items.splice(from, 1);
+      const to = items.findIndex(x => x.id === it.id);
+      items.splice(to, 0, m);
+      dragId = null; render();
+    });
+    list.appendChild(el);
+  });
+  $('#make').disabled = items.length === 0;
+  updatePreview();
+  $('#listHint').style.display = items.length ? 'block' : 'none';
+}
+
+// ---------- 헤더 텍스트를 이미지로 렌더 (한글 폰트 문제 방지) ----------
+const FONT = '"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR","Nanum Gothic",sans-serif';
+const SCALE = 5; // 1pt = 5px
+
+function wrapOrder(ctx, text, maxPx){
+  // '-' 기준으로 줄바꿈
+  const parts = text.match(/[^-]+-?|-/g) || [text]; // 구형 사파리 호환
+  const lines = []; let cur = '';
+  for (const p of parts) {
+    const test = cur + p;
+    if (cur && ctx.measureText(test).width > maxPx) { lines.push(cur); cur = p; }
+    else cur = test;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+async function renderHeader(info, order, widthPt){
+  const smallPt = 7, bigPt = 16;
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d');
+  const maxPx = widthPt * SCALE;
+
+  ctx.font = `700 ${bigPt*SCALE}px ${FONT}`;
+  const orderLines = order ? wrapOrder(ctx, order, maxPx) : [];
+
+  const smallH = info ? smallPt * 1.5 : 0;
+  const gap = info && orderLines.length ? 3 : 0;
+  const bigH = orderLines.length * bigPt * 1.35;
+  const totalPt = smallH + gap + bigH;
+  if (totalPt === 0) return null;
+
+  c.width = Math.ceil(maxPx);
+  c.height = Math.ceil(totalPt * SCALE);
+  ctx.fillStyle = '#000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  let y = 0;
+  if (info) {
+    ctx.font = `400 ${smallPt*SCALE}px ${FONT}`;
+    ctx.fillText(info, c.width/2, (y + smallH/2) * SCALE);
+    y += smallH + gap;
+  }
+  ctx.font = `700 ${bigPt*SCALE}px ${FONT}`;
+  orderLines.forEach((ln, i) => {
+    ctx.fillText(ln.replace(/-$/, '-'), c.width/2, (y + (i + .5) * bigPt * 1.35) * SCALE);
+  });
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  return { bytes: new Uint8Array(await blob.arrayBuffer()), wPt: widthPt, hPt: totalPt };
+}
+
+// ---------- 이미지 → PDF용 바이트 ----------
+const MAX_SIDE = 3200; // 휴대폰 메모리 보호용 최대 픽셀
+async function loadBitmap(file){
+  try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } // 폰 사진 회전 정보 반영
+  catch (e) { return await createImageBitmap(file); }
+}
+async function toEmbeddable(file){
+  // 휴대폰 사진은 회전 정보(EXIF)가 있어 그대로 넣으면 옆으로 누워 보일 수 있으므로
+  // 항상 한 번 그려서 방향을 바로잡고, 너무 큰 사진은 줄입니다.
+  const isPng = file.type === 'image/png';
+  const bmp = await loadBitmap(file);
+  const k = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  const ctx = c.getContext('2d');
+  if (!isPng) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); }
+  ctx.drawImage(bmp, 0, 0, c.width, c.height);
+  if (bmp.close) bmp.close();
+  const blob = await new Promise(r => isPng ? c.toBlob(r, 'image/png') : c.toBlob(r, 'image/jpeg', 0.93));
+  c.width = c.height = 0;
+  return { kind: isPng ? 'png' : 'jpg', bytes: new Uint8Array(await blob.arrayBuffer()) };
+}
+
+// ---------- PDF 생성 ----------
+let lastUrl = null, lastFile = null;
+$('#shareBtn').addEventListener('click', async () => {
+  try { await navigator.share({ files: [lastFile], title: lastFile.name }); } catch (e) { /* 취소 */ }
+});
+$('#make').addEventListener('click', async () => {
+  const btn = $('#make'), st = $('#status');
+  btn.disabled = true;
+  $('#result').classList.remove('show');
+  try {
+    const { PDFDocument } = PDFLib;
+    const pdf = await PDFDocument.create();
+    const info = infoLine();
+    const A4 = [595.28, 841.89];
+    const M = 28;      // 여백
+    const topM = 22;   // 최상단 여백
+
+    for (let i = 0; i < items.length; i++) {
+      st.textContent = `처리 중… ${i+1} / ${items.length}`;
+      const it = items[i];
+      const emb = await toEmbeddable(it.file);
+      const img = emb.kind === 'jpg' ? await pdf.embedJpg(emb.bytes) : await pdf.embedPng(emb.bytes);
+
+      const [pw, ph] = A4; // A4 세로 고정
+      const page = pdf.addPage([pw, ph]);
+
+      const order = it.order.trim();
+      const hdr = await renderHeader(info, order, pw - M*2);
+      let cursorY = ph - topM;
+      if (hdr) {
+        const himg = await pdf.embedPng(hdr.bytes);
+        page.drawImage(himg, { x: M, y: cursorY - hdr.hPt, width: hdr.wPt, height: hdr.hPt });
+        cursorY -= hdr.hPt + 6;
+      }
+      const availW = pw - M*2;
+      const availH = cursorY - M;
+      const s = Math.min(availW / img.width, availH / img.height);
+      const w = img.width * s, h = img.height * s;
+      page.drawImage(img, { x: (pw - w)/2, y: cursorY - h, width: w, height: h });
+    }
+
+    st.textContent = 'PDF 저장 중…';
+    const out = await pdf.save();
+    const blob = new Blob([out], { type: 'application/pdf' });
+    const dv = $('#worshipDate').value || 'score';
+    const name = `${($('#worshipType').value.trim() || '찬양악보')}_${dv}.pdf`;
+    if (lastUrl) URL.revokeObjectURL(lastUrl);
+    lastUrl = URL.createObjectURL(blob);
+    lastFile = new File([blob], name, { type: 'application/pdf' });
+
+    // 휴대폰에서는 자동 다운로드가 막히는 경우가 많아 버튼으로 열기/저장/공유하게 합니다.
+    const dl = $('#dlLink');
+    dl.href = lastUrl; dl.download = name;
+    $('#result').classList.add('show');
+    $('#shareBtn').style.display = (navigator.canShare && navigator.canShare({ files: [lastFile] })) ? '' : 'none';
+    if (!window.matchMedia('(pointer:coarse)').matches) dl.click(); // 컴퓨터에서는 바로 저장
+    st.textContent = `완료! ${name} (${items.length}페이지)`;
+    $('#result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (err) {
+    console.error(err);
+    st.textContent = '오류: ' + err.message;
+  } finally {
+    btn.disabled = items.length === 0;
+  }
+});
+
+// ---------- 앱으로 설치/오프라인 사용 ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
